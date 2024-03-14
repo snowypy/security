@@ -1,0 +1,169 @@
+#================================================================
+#
+#                  Made by SnowyJS | 02/22/2024
+#
+#                   https://femboy.bio/snowyjs
+#
+#================================================================
+
+#----------------------------------------------------------------
+#                       How do I use it?
+#----------------------------------------------------------------
+
+#
+# Use /admin_secure <player> <number> to give the user a code. You
+# Can only use this if you are the admin that is specified in Load
+# Parameters or if it is executed via console.
+#
+# Your code should be a string of numbers
+# Players should use /secure <player> <number> to verify
+# If you are woried that players are still bypassing this then
+# Consider disabling Skript Effect Commands in the skript config
+# This can be found in the skript root directory Skript/config.sk
+# If you need any help please contact SnowyJS on discord!
+#
+# NOTE:
+#   This skript was made to help players prevent their servers
+#   from getting nuked/griefed/destroyed by "hackers" who gain
+#   permissions without the permission of the server owner.
+#   If you would like to add any griefers to the blacklist edit
+#   the code or send me the griefers username / uuid and I will
+#   add them in the next release :)
+# 
+
+#----------------------------------------------------------------
+#                       Load Parameters        
+#----------------------------------------------------------------
+
+options:
+	admin: SnowyJS
+	security_tag: anony.sec # Make this something not easily guessable for extra security
+	version: 1.0 # DO NOT TOUCH
+	version_date: 22/02/2024 # DO NOT TOUCH
+	security_name: Security V1.0 # Used for logging
+
+on load:
+	set {_security.load} to now
+	send "" to console
+	send "&4&lSECURITY IS NOW LOADING" to console
+	send "" to console
+	{@version} is 1.0
+	send "&7Listing Admin:" to console
+	send " &7- &4{@admin}" to console
+	send "" to console
+	send "&7Listing Members:" to console
+	loop {security.members::*}:
+		set {_player} to loop-value
+		send " &7- &4%{_player} ? "No Members with Codes"% &7Member's Code: &4%{security.code::%{_player}'s uuid%} ? "Null (No Code)"%" to console
+	send "" to console
+	send "&7Made by &4SnowyJS &7with &4❤" to console
+	delete {_player}
+	wait 0.1 seconds
+	set {_security.load.finished} to now
+	set {_security.load.time} to difference between {_security.load.time} and {_security.load.finished}
+	log "[{@security_name}] has been loaded from the configuration file. [%{_security.load.time} ? "0ms"%]" to "security_startup"
+	if {@version} is 1.0:
+		send "&7You are using &4Version 1.0 &7this was released on &4{@version_date}" to console
+		send "" to console
+		send "&4&lSECURITY HAS BEEN LOADED" to console
+		send "&7[The config was loaded in &a%{_security.load.time} ? "0ms"%&7]"
+		send "" to console
+
+#----------------------------------------------------------------
+#                           Handler
+#----------------------------------------------------------------
+
+command /admin_secure <player> <number>:
+	trigger:
+		if player is "{@admin}":
+			set {_n} to arg-2 
+			set {_p} to arg-1
+			set {security.code::%{_p}'s uuid%} to {_n}
+			loop {security.members::*}:
+				if {_p} is loop-value:
+					remove loop-value from {security.members::*}
+					send "&4%player% &fis already a security member, ignore this if you are aware of this. &4Deleting Old Data"
+			send "&a%player% &fhas been added as a security member, if they have the permission &a&n{@security_tag} &fthey will have to login to use commands!"
+			add {_p} to {security.members::*}
+			send "" to console
+			send " &C&lNEW SECURITY CODE HAS BEEN REGISTERED: %{_p}% HAS THE CODE %{_n}%" to console
+			send "" to console 
+			log "[CODE] %{_p}% has the security code %{_n}%" to "security_code_logs"
+		else if executor is console:
+			set {_n} to arg-2 
+			set {_p} to arg-1
+			set {security.code::%{_p}'s uuid%} to {_n}
+			add {_p} to {security.members::*}
+			send "" to console
+			send " &C&lNEW SECURITY CODE HAS BEEN REGISTERED: %{_p}% HAS THE CODE %{_n}%" to console
+			send "" to console 
+			log "[CODE] %{_p}% has the security code %{_n}%" to "security_code_logs"
+
+on join:
+	if player has permission "{@security_tag}":
+		set {security.check::%player's uuid%} to false
+		send "<##EC2B2B>[SECURITY] %player% &fhas connected and is not verified!" to console and all players where [input has permission "123.123"]
+		send title "<##EC2B2B>&lSECURITY" with subtitle "&7You are not authorized" to player for 1000 minutes
+		log "[JOIN] %player% has connected and needs to verify!" to "security_join"
+		play sound "entity.shulker.hurt_closed" to player
+		wait 60 seconds
+		if {security.check::%player's uuid%} is false:
+			kick player
+			log "[KICK] %player% was not able to log in in 60 seconds!" to "security_kick"
+
+on quit:
+	if player has permission "{@security_tag}":
+		{security.check::%player's uuid%} is false
+		send "<##EC2B2B>[SECURITY] %player% &fhas disconnected without verified!" to console and all players where [input has permission "123.123"]
+		log "[LEAVE] %player% has disconnected while not verified!" to "security_leave"
+
+on chat:
+	player has permission "{@security_tag}"
+	message contains "!"
+	{security.check::%player's uuid%} is false
+	kick player
+
+on join:
+	player has permission "{@security_tag}"
+	if player is "hectograms" or "itswoshi" or "1nstagram", "":
+		send "<##EC2B2B>[SECURITY] %player% &fhas tried to connect &4Report to Admins!" to console and all players where [input has permission "123.123"]
+		log "[GRIEF] %player% has attempted to connect to the server!" to "security_grief"
+		kick player
+		# Known griefers, anony kick shows server connection error instead of kicked by operator etc
+
+on chat:
+	player has permission "{@security_tag}"
+	{security.check::%player's uuid%} is false
+	cancel event
+
+on command:
+	command is not "secure"
+	player has permission "{@security_tag}"
+	if {security.check::%player's uuid%} is false:
+		cancel event
+		send "<##EC2B2B>[SECURITY] %player% &fhas tried to execute a command while not verified!" to console and all players where [input has permission "123.123"]
+		send title "<##EC2B2B>&lSECURITY" with subtitle "&7You are not authorized to execute this command" to player for 1000 minutes
+		send "&7You are not authorized to execute this command"
+		play sound "entity.shulker.hurt_closed" to player
+		log "[LEAVE] %player% has tried to execute a command while not verified!" to "security_command"
+
+on any movement:
+	player has permission "{@security_tag}"
+	if {security.check::%player's uuid%} is false:
+		cancel event
+		send title "<##EC2B2B>&lSECURITY" with subtitle "&7You are not authorized to move" to player for 1000 minutes
+		send "&7You are not authorized to move"
+		play sound "entity.shulker.hurt_closed" to player
+	if {security.check::%player's uuid%} is not set:
+		cancel event
+		send title "<##EC2B2B>&lSECURITY" with subtitle "&7You are not authorized to move" to player for 1000 minutes
+		send "&7You are not authorized to execute this command"
+		play sound "entity.shulker.hurt_closed" to player
+
+command /secure [<number>]:
+	permission: {@security_tag}
+	trigger:
+		if arg-1 is {security.code::%player's uuid%}:
+			set {security.check::%player's uuid%} to true
+			send "<##EC2B2B>[SECURITY] %player% &fhas &aauthorized!" to console and all players where [input has permission "123.123"]
+			send title "<##EC2B2B>&lSECURITY" with subtitle "&aYou are now authorized" to player for 10 seconds
